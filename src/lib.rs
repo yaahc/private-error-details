@@ -1,12 +1,16 @@
-use eyre::{eyre, ErrReport};
+#[derive(Debug, thiserror::Error, displaydoc::Display)]
+enum Kind {
+    /// Encountered the only error case this library supports
+    OnlyError,
+}
 
-impl Into<PublicImplHider> for ErrReport {
+impl Into<PublicImplHider> for Kind {
     fn into(self) -> PublicImplHider {
         PublicImplHider(self)
     }
 }
 
-pub struct PublicImplHider(ErrReport);
+pub struct PublicImplHider(Kind);
 
 pub struct Error(PublicImplHider);
 
@@ -19,20 +23,30 @@ where
     }
 }
 
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        (self.0).0.source()
+    }
+}
+
+use std::fmt::{self, Debug, Display, Formatter};
+
+impl Debug for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Debug::fmt(&(self.0).0, f)
+    }
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Display::fmt(&(self.0).0, f)
+    }
+}
+
 pub fn get(return_error: bool) -> Result<(), Error> {
     if return_error {
-        Err(eyre!(
-            "heres an error thats implementation is completely hidden from my API"
-        ))?;
+        Err(Kind::OnlyError)?;
     }
 
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
 }
